@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>예외 발생 결과</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 2rem;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: #28a745;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        .stack-trace {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+        .back-button:hover {
+            background-color: #0056b3;
+            color: white;
+            text-decoration: none;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>예외 발생 테스트 결과</h1>
+
+    <div th:if="${result != null}" th:unless="${exception != null}" class="success">
+        <h3>정상 결과</h3>
+        <p th:text="${result}"></p>
+    </div>
+
+    <div th:if="${result != null and not #lists.isEmpty(stackTraceList)}" class="error">
+
+    <h3>예외 발생!</h3>
+        <p><strong>예외 타입:</strong> <span th:text="${exception.class.simpleName}"></span></p>
+        <p><strong>메시지:</strong> <span th:text="${exception.message}"></span></p>
+
+        <div th:if="${stackTraceList != null and !#lists.isEmpty(stackTraceList)}" class="stack-trace">
+            <strong>스택 트레이스:</strong><br/>
+            <div th:each="trace : ${stackTraceList}">
+                <pre th:text="${trace}">예외 라인</pre>
+            </div>
+        </div>
+
+    <a href="/index" class="back-button">← 테스트 목록으로 돌아가기</a>
+</div>
+</div>
+</body>
+</html>
