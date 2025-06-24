@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>예외 시뮬레이터</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #f5f5f5; }
+        button { padding: 5px 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<h1>🧪 예외 발생 테스트 목록</h1>
+
+<table>
+    <thead>
+    <tr>
+        <th>예외 코드</th>
+        <th>설명</th>
+        <th>트리거</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    <tr><td>serviceException</td><td>일반적인 서비스 예외</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="serviceException" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>out_of_memory</td><td>JVM 메모리 부족 에러 (OutOfMemoryError)</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="out_of_memory" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>db_connection_unclosed</td><td>DB 커넥션 미종료</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="db_connection_unclosed" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>db_statement_unclosed</td><td>Statement 미종료</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="db_statement_unclosed" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>db_resultset_unclosed</td><td>ResultSet 미종료</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="db_resultset_unclosed" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>http_id_exception</td><td>잘못된 HTTP 요청 파라미터</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="http_id_exception" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>service_error</td><td>서비스 내부 처리 오류</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="service_error" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>pjc_rejected</td><td>ThreadPool 작업 거부 (RejectedExecution)</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="pjc_rejected" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>dbadlock</td><td>DB Deadlock 시뮬레이션</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="dbadlock" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>method_exception</td><td>지원되지 않는 메서드 호출</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="method_exception" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>socket_exception</td><td>잘못된 소켓 연결</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="socket_exception" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>sql_toomany_fetch</td><td>SQL 데이터 과다 조회</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="sql_toomany_fetch" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>externalcall_exception</td><td>외부 API 호출 실패</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="externalcall_exception" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>db_connection_fail</td><td>DB 연결 실패</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="db_connection_fail" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>db_un_commit_rollback</td><td>트랜잭션 커밋 누락으로 인한 롤백</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="db_un_commit_rollback" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>db_connection_illegal_access</td><td>불법적인 DB 접근</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="db_connection_illegal_access" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>recursive_call</td><td>무한 재귀 호출 (StackOverflowError)</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="recursive_call" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>sql_exception</td><td>SQL 문법 오류</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="sql_exception" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>http_404_error</td><td>404 Not Found 응답 유도</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="http_404_error" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>batch_exception</td><td>배치 처리 중 포맷 오류</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="batch_exception" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>thread_kill_manual</td><td>수동으로 스레드 중단 시뮬레이션</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="thread_kill_manual" /><button type="submit">발생시키기</button></form></td></tr>
+    <tr><td>thread_kill_auto</td><td>JVM이 자동으로 죽는 에러 유발</td><td><form action="/trigger" method="post"><input type="hidden" name="type" value="thread_kill_auto" /><button type="submit">발생시키기</button></form></td></tr>
+
+    </tbody>
+</table>
+
+</body>
+</html>
