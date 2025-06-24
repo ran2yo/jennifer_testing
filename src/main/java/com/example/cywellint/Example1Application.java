@@ -63,7 +63,7 @@ class TestService {
 		try {
 			
 			/*for (int j = 0; j < 5; j++) { // 내부에서도 5단계 정도 추가
-*/				callSubMethod();
+*/				callSubMethod(random.nextInt(5));
 			/* } */
 			/*
 			 * switch (type) { case "user" -> processUser(); case "order" -> processOrder();
@@ -81,10 +81,10 @@ class TestService {
 		}
 	}
 
-	private void callSubMethod() {
-		log.info("Executing step {}");
-		
-	}
+    private void callSubMethod(int step) {
+            log.info("Executing step {}", step);
+
+    }
 
 //	private void processUser() {
 //		log.debug("Creating user");
