@@ -1,378 +1,326 @@
 package com.example.jennifer_adapter.service;
 
-import org.springframework.stereotype.Service;
 
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.hibernate.service.spi.ServiceException;
+import org.springframework.boot.sql.init.dependency.DependsOnDatabaseInitialization;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+
+import javax.sql.DataSource;
 import java.io.IOException;
+import java.net.ConnectException;
+
 import java.net.HttpURLConnection;
-import java.net.Socket;
+import java.net.SocketException;
 import java.net.URL;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+@DependsOnDatabaseInitialization
 @Service
 public class EventService {
 
-    public void trigger(String type) throws SQLException {
-        switch (type.toLowerCase()) {
-            case "serviceexception" -> throwServiceException();
-            case "out_of_memory" -> triggerOutOfMemory();
-            case "db_connection_unclosed" -> triggerDBConnectionUnclose();
-            case "db_statement_unclosed" -> triggerDbStatementUnclosed();
-            case "db_resultset_unclosed" -> triggerDbResultSetUnclosed();
-            case "http_id_exception" -> triggerHttpIdException();
-            case "service_error" -> triggerServiceError();
-            case "pjc_rejected" -> triggerThreadRejected();
-            case "dbadlock" -> triggerDbDeadlock();
-            case "method_exception" -> triggerMethodException();
-            case "socket_exception" -> triggerSocketException();
-            case "sql_toomany_fetch" -> triggerSqlTooManyFetch();
-            case "externalcall_exception" -> triggerExternalCallException();
-            case "db_connection_fail" -> triggerDbConnectionFail();
-            case "db_un_commit_rollback" -> triggerUncommittedTransaction();
-            case "db_connection_illegal_access" -> triggerIllegalDbAccess();
-            case "recursive_call" -> triggerRecursiveCall();
-            case "sql_exception" -> triggerSqlException();
-            case "http_404_error" -> triggerHttp404();
-            case "batch_exception" -> triggerBatchException();
-            case "thread_kill_manual" -> triggerThreadKillManual();
-            case "thread_kill_auto" -> triggerThreadKillAuto();
-            default -> throw new IllegalArgumentException("지원하지 않는 예외 타입입니다: " + type);
-        }
+    private final DataSource dataSource;
+
+
+    public EventService(DataSource dataSource) {
+        this.dataSource = dataSource;
     }
 
-    private void throwServiceException() {
-        throw new RuntimeException("ServiceException: 일반적인 서비스 예외가 발생했습니다");
+   /* public static void triggerRecursiveCall(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        resp.getWriter().println("Helper starts<br>");
+        RequestDispatcher dispatcher = req.getRequestDispatcher("/WEB-INF/jsp/recursive.jsp");
+        dispatcher.include(req, resp);
+        resp.getWriter().println("Helper ends<br>");
+    }*/
+
+    public void trigger(String type) throws Throwable {
+        EventType.fromKey(type).execute(this);
     }
 
-    private void triggerOutOfMemory() {
-        // 실제 OutOfMemoryError 발생
-        List<byte[]> memoryEater = new ArrayList<>();
-        try {
-            while (true) {
-                // 큰 배열을 계속 생성하여 힙 메모리 고갈
-                memoryEater.add(new byte[10 * 1024 * 1024]); // 10MB씩
-            }
-        } catch (OutOfMemoryError e) {
-            throw e; // 실제 OutOfMemoryError 재던지기
-        }
+    public void triggerHttpIOException() throws IOException {
+        throw new IOException("HTTP IO Exception 발생");
     }
 
-    private void triggerDBConnectionUnclose() {
-        // 실제 DB 커넥션을 열고 닫지 않아서 리소스 누수 시뮬레이션
-        try {
-            for (int i = 0; i < 100; i++) {
-                // H2 인메모리 DB 연결 (닫지 않음)
-                Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "");
-                // 의도적으로 close() 하지 않음
-                if (i == 99) {
-                    throw new SQLException("DB 커넥션 100개가 닫히지 않고 누수되었습니다");
-                }
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("DB 커넥션 누수 발생", e);
-        }
-    }
+    public void triggerHttp404() throws Exception {
+        try(CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpGet request = new HttpGet("http://localhost:8090/APP/V1/inbound/jennifer/ec9999");
+            HttpResponse response = httpClient.execute(request);
+            int statusCode = response.getStatusLine().getStatusCode();
 
-    private void triggerDbStatementUnclosed() {
-        // 실제 Statement를 열고 닫지 않는 시뮬레이션
-        try {
-            Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "");
-            for (int i = 0; i < 50; i++) {
-                Statement stmt = conn.createStatement();
-                // 의도적으로 close() 하지 않음
-            }
-            conn.close();
-            throw new SQLException("Statement 50개가 닫히지 않고 누수되었습니다");
-        } catch (SQLException e) {
-            throw new RuntimeException("Statement 누수 발생", e);
-        }
-    }
-
-    private void triggerDbResultSetUnclosed() {
-        // 실제 ResultSet을 열고 닫지 않는 시뮬레이션
-        try {
-            Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "");
-            Statement stmt = conn.createStatement();
-            stmt.execute("CREATE TABLE IF NOT EXISTS test (id INT)");
-            stmt.execute("INSERT INTO test VALUES (1)");
-
-            for (int i = 0; i < 30; i++) {
-                ResultSet rs = stmt.executeQuery("SELECT * FROM test");
-                // 의도적으로 close() 하지 않음
-            }
-            stmt.close();
-            conn.close();
-            throw new SQLException("ResultSet 30개가 닫히지 않고 누수되었습니다");
-        } catch (SQLException e) {
-            throw new RuntimeException("ResultSet 누수 발생", e);
-        }
-    }
-
-    private void triggerHttpIdException() {
-        // 실제 HTTP 파라미터 파싱 에러
-        String invalidId = "abc123!@#";
-        try {
-            Integer.parseInt(invalidId);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("HTTP 파라미터 ID 변환 실패: " + invalidId, e);
-        }
-    }
-
-    private void triggerServiceError() {
-        // 실제 서비스 로직 에러 시뮬레이션
-        throw new RuntimeException("서비스 내부 처리 중 치명적 오류 발생: 데이터 무결성 위반");
-    }
-
-    private void triggerThreadRejected() {
-        // 실제 ThreadPool 거부 상황 만들기
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                1, 1, 0L, TimeUnit.MILLISECONDS,
-                new SynchronousQueue<>(), // 대기열 크기 0
-                new ThreadPoolExecutor.AbortPolicy() // 거부 정책
-        );
-
-        try {
-            // 첫 번째 작업으로 스레드 풀 점유
-            executor.submit(() -> {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            });
-
-            // 두 번째 작업은 거부됨 (RejectedExecutionException 발생)
-            executor.submit(() -> System.out.println("이 작업은 실행되지 않습니다"));
-
-        } finally {
-            executor.shutdown();
-        }
-    }
-
-    private void triggerDbDeadlock() throws SQLException {
-        // 실제 데드락 시뮬레이션
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        CountDownLatch startLatch = new CountDownLatch(2);
-        AtomicReference<Exception> deadlockException = new AtomicReference<>();
-
-        try {
-            // 트랜잭션 1
-            Future<?> task1 = executor.submit(() -> {
-                try (Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "")) {
-                    conn.setAutoCommit(false);
-                    Statement stmt = conn.createStatement();
-                    stmt.execute("CREATE TABLE IF NOT EXISTS table_a (id INT PRIMARY KEY, value INT)");
-                    stmt.execute("CREATE TABLE IF NOT EXISTS table_b (id INT PRIMARY KEY, value INT)");
-                    stmt.execute("INSERT INTO table_a VALUES (1, 0) ON DUPLICATE KEY UPDATE value = value");
-                    stmt.execute("INSERT INTO table_b VALUES (1, 0) ON DUPLICATE KEY UPDATE value = value");
-
-                    stmt.executeUpdate("UPDATE table_a SET value = 1 WHERE id = 1");
-                    startLatch.countDown();
-                    startLatch.await();
-                    Thread.sleep(100);
-                    stmt.executeUpdate("UPDATE table_b SET value = 1 WHERE id = 1");
-                    conn.commit();
-                } catch (Exception e) {
-                    deadlockException.set(e);
-                }
-            });
-
-            // 트랜잭션 2
-            Future<?> task2 = executor.submit(() -> {
-                try (Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "")) {
-                    conn.setAutoCommit(false);
-                    Statement stmt = conn.createStatement();
-                    stmt.executeUpdate("UPDATE table_b SET value = 2 WHERE id = 1");
-                    startLatch.countDown();
-                    startLatch.await();
-                    Thread.sleep(100);
-                    stmt.executeUpdate("UPDATE table_a SET value = 2 WHERE id = 1");
-                    conn.commit();
-                } catch (Exception e) {
-                    deadlockException.set(e);
-                }
-            });
-
-            task1.get(3, TimeUnit.SECONDS);
-            task2.get(3, TimeUnit.SECONDS);
-
-        } catch (TimeoutException e) {
-            throw new SQLException("데이터베이스 데드락이 발생했습니다 (타임아웃)", "40001");
-        } catch (Exception e) {
-            if (deadlockException.get() != null) {
-                throw new RuntimeException("데드락 발생", deadlockException.get());
-            }
-            throw new RuntimeException("데드락 시뮬레이션 실패", e);
-        } finally {
-            executor.shutdownNow();
-        }
-    }
-
-    private void triggerMethodException() {
-        // 실제 지원되지 않는 메서드 호출
-        List<String> unmodifiableList = List.of("item1", "item2");
-        try {
-            unmodifiableList.add("item3"); // UnsupportedOperationException 발생
-        } catch (UnsupportedOperationException e) {
-            throw e;
-        }
-    }
-
-    private void triggerSocketException() {
-        // 실제 소켓 연결 실패
-        try {
-            Socket socket = new Socket("192.0.2.1", 80); // 존재하지 않는 IP
-            socket.close();
-        } catch (IOException e) {
-            throw new RuntimeException("소켓 연결 실패: " + e.getMessage(), e);
-        }
-    }
-
-    private void triggerSqlTooManyFetch() {
-        // 실제 대량 데이터 fetch 시뮬레이션
-        try (Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "")) {
-            Statement stmt = conn.createStatement();
-            stmt.execute("CREATE TABLE IF NOT EXISTS big_table (id INT, data VARCHAR(1000))");
-
-            // 대량 데이터 삽입
-            for (int i = 0; i < 10000; i++) {
-                stmt.execute("INSERT INTO big_table VALUES (" + i + ", '" + "x".repeat(1000) + "')");
+            if(statusCode == 404) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "http Not Found 404" +request.getURI()
+                );
             }
 
-            // 한 번에 모든 데이터 fetch (메모리 부족 유발)
-            ResultSet rs = stmt.executeQuery("SELECT * FROM big_table");
-            List<String> data = new ArrayList<>();
-            while (rs.next()) {
-                data.add(rs.getString("data"));
-            }
 
-            throw new SQLException("SQL에서 " + data.size() + "건의 대용량 데이터를 fetch했습니다");
-
-        } catch (SQLException e) {
-            throw new RuntimeException("SQL 대량 fetch 오류", e);
         }
     }
 
-    private void triggerExternalCallException() {
-        // 실제 외부 API 호출 실패
-        try {
-            URL url = new URL("http://httpstat.us/500"); // 500 에러 반환하는 테스트 서비스
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-            connection.setRequestMethod("GET");
-
-            int responseCode = connection.getResponseCode();
-            if (responseCode >= 400) {
-                throw new IOException("외부 API 호출 실패: HTTP " + responseCode);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("외부 서비스 호출 실패", e);
+    public void triggerOutOfMemory() {
+        List<byte[]> list = new ArrayList<>();
+        while (true) {
+            list.add(new byte[10 * 1024 * 1024]);
         }
     }
 
-    private void triggerDbConnectionFail() {
-        // 실제 DB 연결 실패
-        try {
-            DriverManager.getConnection("jdbc:mysql://nonexistent-host:3306/db", "user", "pass");
-        } catch (SQLException e) {
-            throw new RuntimeException("데이터베이스 연결 실패", e);
-        }
+    public void throwServiceException() {
+        throw new ServiceException("Service Exception 발생");
     }
 
-    private void triggerUncommittedTransaction() {
-        // 실제 트랜잭션 커밋 누락
-        try (Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "")) {
+    public void triggerServiceError() throws Throwable {
+        throw new Error("Service Error 발생");
+    }
+
+/*
+    public void triggerDBConnectionUnclose() throws SQLException {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        for (int i = 0; i < 1; i++) {
+            conn = dataSource.getConnection();
             conn.setAutoCommit(false);
-            Statement stmt = conn.createStatement();
-            stmt.execute("CREATE TABLE IF NOT EXISTS transaction_test (id INT, value VARCHAR(50))");
-            stmt.executeUpdate("INSERT INTO transaction_test VALUES (1, 'uncommitted_data')");
+            stmt = conn.createStatement();
+            //Thread.sleep(1000);
+            rs = stmt.executeQuery("SELECT \n" +
+                    "    u.name AS user_name,\n" +
+                    "    o.id AS order_id,\n" +
+                    "    o.order_status,\n" +
+                    "    oi.product_id,\n" +
+                    "    p.name AS product_name,\n" +
+                    "    oi.quantity,\n" +
+                    "    oi.price\n" +
+                    "FROM user u\n" +
+                    "JOIN orders o ON u.id = o.user_id\n" +
+                    "JOIN order_items oi ON o.id = oi.order_id\n" +
+                    "JOIN products p ON oi.product_id = p.id;\n");
 
-            // 의도적으로 commit() 하지 않고 종료
-            // 연결이 닫히면서 자동 rollback됨
-            throw new SQLException("트랜잭션이 커밋되지 않아 롤백되었습니다");
-
-        } catch (SQLException e) {
-            throw new RuntimeException("트랜잭션 커밋 누락", e);
         }
+
+
     }
+*/
 
-    private void triggerIllegalDbAccess() {
-        // 실제 권한 없는 DB 접근 시뮬레이션
-        try {
-            Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "");
-            Statement stmt = conn.createStatement();
+/*    public void triggerDbStatementUnclosed() throws SQLException, InterruptedException {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        //  for(int i =0; i<10; i++) {
+        conn = dataSource.getConnection();
+        conn.setAutoCommit(false);
+        stmt = conn.createStatement();
+        //Thread.sleep(1000);
+        rs = stmt.executeQuery("SELECT \n" +
+                "    u.name AS user_name,\n" +
+                "    o.id AS order_id,\n" +
+                "    o.order_status,\n" +
+                "    oi.product_id,\n" +
+                "    p.name AS product_name,\n" +
+                "    oi.quantity,\n" +
+                "    oi.price\n" +
+                "FROM user u\n" +
+                "JOIN orders o ON u.id = o.user_id\n" +
+                "JOIN order_items oi ON o.id = oi.order_id\n" +
+                "JOIN products p ON oi.product_id = p.id;\n");
+        //   for (int j = 0; j < 5; j++) {
+        System.gc();
+        Thread.sleep(1000);
+        System.runFinalization();*/
+        //      }
 
-            // 존재하지 않는 테이블 접근
-            stmt.executeQuery("SELECT * FROM non_existent_secure_table");
+        //  }
+//        long start = System.currentTimeMillis();
+//          while(stmt.wait()){
+//              long end = System.currentTimeMillis();
+//              System.out.println("User Name: "+ rs.getString("user_name") + (end - start));
+//          }
 
-        } catch (SQLException e) {
-            throw new SecurityException("데이터베이스 불법 접근 감지: " + e.getMessage(), e);
-        }
-    }
+//
+//          rs.close();
+//          conn.close();
 
-    private void triggerRecursiveCall() {
-        // 실제 무한 재귀 호출로 StackOverflowError 발생
-        triggerRecursiveCall();
-    }
 
-    private void triggerSqlException() {
-        // 실제 SQL 문법 오류
-        try (Connection conn = DriverManager.getConnection("jdbc:h2:mem:testdb", "sa", "")) {
-            Statement stmt = conn.createStatement();
-            stmt.executeQuery("SELCT * FORM invalid_syntax_table"); // 의도적 문법 오류
-        } catch (SQLException e) {
-            throw new RuntimeException("SQL 문법 오류", e);
-        }
-    }
+ //   }
 
-    private void triggerHttp404() {
-        // 실제 404 에러 발생
-        try {
-            URL url = new URL("http://httpstat.us/404");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            int responseCode = connection.getResponseCode();
+ /*   public void triggerDbResultSetUnclosed() throws Exception {
+        boolean closed;
+        boolean checkClosed = false;
+        boolean isFinalize;
+        Connection conn;
+        Statement stmt;
+        ResultSet rs;
+        conn = DriverManager.getConnection(
+                "jdbc:mysql://192.168.1.89:3306/jennifer_db", "ryyoun", "Dlqslek12!@"
+        );
+        conn.setAutoCommit(false);
+        stmt = conn.createStatement();
+        rs = stmt.executeQuery("SELECT \n" +
+                "    u.name AS user_name,\n" +
+                "    o.id AS order_id,\n" +
+                "    o.order_status,\n" +
+                "    oi.product_id,\n" +
+                "    p.name AS product_name,\n" +
+                "    oi.quantity,\n" +
+                "    oi.price\n" +
+                "FROM user u\n" +
+                "JOIN orders o ON u.id = o.user_id\n" +
+                "JOIN order_items oi ON o.id = oi.order_id\n" +
+                "JOIN products p ON oi.product_id = p.id;\n");
 
-            if (responseCode == 404) {
-                throw new RuntimeException("HTTP 404 Not Found 오류가 발생했습니다");
+
+
+//            @Override
+//            protected void finalize() throws Throwable {
+//                System.out.println("🔥 finalize() called for LeakyWrapper!");
+//                // close는 의도적으로 안 함
+//                super.finalize();
+//            }
+
+
+        System.gc();
+        Thread.sleep(1000);
+        System.runFinalization();
+
+
+        System.out.println("🧙‍♂️ GC 유도 완료");
+
+
+    }*/
+
+    public void triggerDeadlock() throws Exception {
+        final String jdbcUrl = "jdbc:h2:mem:testdb,DB_CLOSE_DELAY=-1,MVCC=TRUN;LOCK_TIMEOUT=5000";
+
+        //latch로 두 스레드 준비 동기화
+        CountDownLatch latch = new CountDownLatch(2);
+        AtomicReference<Exception> exRef = new AtomicReference<>();
+        // 트랜잭션1: table_a → table_b
+        Runnable task1 = () -> {
+            try (Connection c = DriverManager.getConnection(jdbcUrl, "sa", "")) {
+                c.setAutoCommit(false);
+                // 1) table_a lock
+                c.createStatement().executeUpdate("UPDATE table_a SET val = val + 1 WHERE id = 1");
+                // 2) 데드락 유발 전까지 대기
+                latch.await();
+                // 3) table_b lock (여기서 데드락)
+                c.createStatement().executeUpdate("UPDATE table_b SET val = val + 1 WHERE id = 1");
+                c.commit();
+            } catch (Exception e) {
+                exRef.set(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException("HTTP 404 시뮬레이션 중 오류", e);
-        }
-    }
+        };
 
-    private void triggerBatchException() {
-        // 실제 배치 처리 중 데이터 포맷 오류
-        String[] invalidData = {"123", "abc", "456", "def"};
-        List<Integer> processedData = new ArrayList<>();
-
-        try {
-            for (String data : invalidData) {
-                processedData.add(Integer.parseInt(data)); // NumberFormatException 발생
+        // 트랜잭션2: table_b → table_a
+        Runnable task2 = () -> {
+            try (Connection c = DriverManager.getConnection(jdbcUrl, "sa", "")) {
+                c.setAutoCommit(false);
+                c.createStatement().executeUpdate("UPDATE table_b SET val = val + 1 WHERE id = 1");
+                // 트랜잭션1이 table_a lock 후 대기 시작
+                latch.countDown();
+                c.createStatement().executeUpdate("UPDATE table_a SET val = val + 1 WHERE id = 1");
+                c.commit();
+            } catch (Exception e) {
+                exRef.set(e);
             }
-        } catch (NumberFormatException e) {
-            throw new RuntimeException("배치 처리 중 데이터 포맷 오류: " + e.getMessage(), e);
+        };
+
+        Thread t1 = new Thread(task1), t2 = new Thread(task2);
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
+
+        // 데드락 예외가 생겼는지 던져줌
+        if (exRef.get() != null) throw exRef.get();
+    }
+
+    public void triggerMethodException() throws Exception {
+      //  throw new MethodNotFoundException("Method Exception 시뮬레이션");
+
+    }
+
+    public void triggerSqlException() throws SQLException {
+        // 직접 DriverManager로 Connection 획득
+        String jdbcUrl = "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1";
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, "sa", "");
+             Statement stmt = conn.createStatement()) {
+            // 잘못된 테이블명 실행
+            stmt.executeQuery("SELECT * FROM non_existent_table");
         }
     }
 
-    private void triggerThreadKillManual() {
-        // 실제 스레드 인터럽트
-        Thread currentThread = Thread.currentThread();
-        currentThread.interrupt();
+    public void triggerExternalCallException() throws Exception {
+        try(CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpGet request = new HttpGet("http://httpbin.org/dad");
+            try(var response = httpClient.execute(request)) {
+                String result = EntityUtils.toString(response.getEntity());
+                System.out.println("응답내용:" + result);
+            }
 
-        try {
-            Thread.sleep(1000); // InterruptedException 발생
-        } catch (InterruptedException e) {
-            throw new RuntimeException("스레드가 수동으로 중단되었습니다", e);
         }
     }
 
-    private void triggerThreadKillAuto() {
-        // JVM 강제 종료 (실제 서버 종료됨!)
-        Runtime.getRuntime().halt(1);
+/*    public void triggerDbConnectionFail() throws SQLException, InterruptedException {
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        conn = dataSource.getConnection();
+        conn.setAutoCommit(false);
+        stmt = conn.createStatement();
+        //Thread.sleep(1000);
+        rs = stmt.executeQuery("SELECT \n" +
+                "    u.name AS user_name,\n" +
+                "    o.id AS order_id,\n" +
+                "    o.order_status,\n" +
+                "    oi.product_id,\n" +
+                "    p.name AS product_name,\n" +
+                "    oi.quantity,\n" +
+                "    oi.price\n" +
+                "FROM user u\n" +
+                "JOIN orders o ON u.id = o.user_id\n" +
+                "JOIN order_items oi ON o.id = oi.order_id\n" +
+                "JOIN products p ON oi.product_id = p.id;\n");
+        Thread.sleep(10000);
+
+//        long start = System.currentTimeMillis();
+//          while(rs.next()){
+//              long end = System.currentTimeMillis();
+//              System.out.println("User Name: "+ rs.getString("user_name") + (end - start));
+//
+//
+//          }
+        stmt.close();
+        rs.close();
+        conn.close();
+
+
+    }*/
+/*
+    public void triggerDbUnCommitRollback() throws SQLException {
+        throw new SQLException("DB Uncommit/Rollback 시뮬레이션");
     }
+
+    public void triggerIllegalDbAccess() throws SQLException {
+        throw new SQLException("DB Connection Illegal Access 시뮬레이션");
+    }*/
+
+    public void triggerSocketException() throws SocketException {
+        throw new SocketException("Socket Exception !");
+    }
+
+/*    public void triggerBatchException() {
+    }*/
 }
